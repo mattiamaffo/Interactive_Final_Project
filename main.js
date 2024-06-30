@@ -1,7 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
-import { generateTubes } from './generateTubes'
-import { GUI } from 'dat.gui';
+//import { generateTubes } from './generateTubes'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Create a new scene
 var scene = new THREE.Scene();
@@ -70,13 +70,61 @@ loader.load('/background1.jpg', function(texture) {
     scene.add(backgroundMesh2);
 });
 
+// Function to generate random tubes with specific positions
+function generateRandomTubes(posX = 11) {
+    const loader = new GLTFLoader();
+    const scaleFactor = 0.5; // Adjust this value as needed
+    
+    // Randomly select positions from the range array
+    const randomIndex1 = Math.floor(Math.random() * range.length);
+    console.log(randomIndex1)
+    const positionY1 = range[randomIndex1][0]; // Lower bound of Y position
+    const positionY2 = range[randomIndex1][1]; // Upper bound of Y position
+    
+    // Load the first tube (oriented upwards)
+    loader.load('pipe2.glb', function(gltf) {
+        const tube1 = gltf.scene;
+        tube1.traverse(function(node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                node.name = 'tube'; // Set a unique name for the tube
+            }
+        });
+        tube1.position.set(posX, positionY1, 0); 
+        console.log(tube1.position)
+        tube1.scale.set(scaleFactor, 1.5, scaleFactor);
+        scene.add(tube1);
+    });
+  
+    // Load the second tube (oriented downwards)
+    loader.load('pipe2.glb', function(gltf) {
+        const tube2 = gltf.scene;
+        tube2.traverse(function(node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+                // Rotate the tube to orient it downwards
+                node.rotation.x = Math.PI; // Rotate 180 degrees around x-axis
+                node.name = 'tube'; // Set a unique name for the tube
+            }
+        });
+        tube2.position.set(posX, positionY2, 0);
+        console.log(tube2.position)
+        tube2.scale.set(scaleFactor, 1.5, scaleFactor);
+        scene.add(tube2);
+    });
+}
 
-// TODO: adjust the tubes, add a circle to the top opening of the tube. -> Generate two tubes with each call of the function. -> Random position of the tubes.
+// Array of Y positions for tubes
+const range = [ [-3, 7], [-4, 6], [-5, 5], [-6, 4], [-7, 3] ];
 
-// Generate and add a green tube to the scene
-const greenTube = generateTubes(0x00ff00, 9, 0.8, 1, 12); // Smaller tube
-greenTube.position.set(4, -7, 0); // Set the initial position of the tube to make it appear from below
-scene.add(greenTube);
+generateRandomTubes(5); // Generate the first tubes
+
+setTimeout(() => {generateRandomTubes(10)}, 2000); // Generate the second tubes after 2 seconds
+
+// Call generateRandomTubes every 8.3 seconds
+setInterval(generateRandomTubes, 8300);
 
 
 // Instantiate parameters for the animate function.
@@ -103,6 +151,13 @@ function animate() {
             backgroundMesh2.position.x = backgroundMesh1.position.x + backgroundMesh1.geometry.parameters.width;
         }
     }
+
+    // Move the tubes horizontally
+    scene.traverse(function(object) {
+        if (object.isMesh && object.name === 'tube') {
+            object.position.x -= speed;
+        }
+    });
 
     // Oscillation effect for the camera
     time += 0.01;
