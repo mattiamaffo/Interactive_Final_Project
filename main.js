@@ -123,27 +123,32 @@ generateRandomTubes(5); // Generate the first tubes
 
 setTimeout(() => {generateRandomTubes(10)}, 2000); // Generate the second tubes after 2 seconds
 
-// Call generateRandomTubes every 8.3 seconds
-setInterval(generateRandomTubes, 8300);
+// Call generateRandomTubes every 5.8 seconds
+setInterval(generateRandomTubes, 5800);
 
 
 // Instantiate parameters for the animate function.
-var speed = 0.01; // Speed of the movement
-
+var speed = 3; // Speed of the movement
 // We set an oscillation effect for the camera, like as we're flying. We need to set the amplitude and the frequency of the oscillation.
 var amplitude = 0.5;
 var frequency = 1.2;
 var time = 0; // Time parameter for the oscillation
 
-function animate() {
+let lastTime = 0;
+
+function animate(time) {
     requestAnimationFrame(animate);
 
-    // Move the background horizontally.
-    if (backgroundMesh1 && backgroundMesh2) {
-        backgroundMesh1.position.x -= speed;
-        backgroundMesh2.position.x -= speed;
+    // Calcola il delta time
+    const deltaTime = (time - lastTime) / 1000; // Converti millisecondi in secondi
+    lastTime = time;
 
-        // Reset the position of the planes when they are out of the screen.
+    // Movimento orizzontale del background normalizzato al tempo
+    if (backgroundMesh1 && backgroundMesh2) {
+        backgroundMesh1.position.x -= speed * deltaTime;
+        backgroundMesh2.position.x -= speed * deltaTime;
+
+        // Reset della posizione dei piani quando escono dallo schermo
         if (backgroundMesh1.position.x < -backgroundMesh1.geometry.parameters.width) {
             backgroundMesh1.position.x = backgroundMesh2.position.x + backgroundMesh2.geometry.parameters.width;
         }
@@ -152,16 +157,16 @@ function animate() {
         }
     }
 
-    // Move the tubes horizontally
+    // Movimento orizzontale dei tubi normalizzato al tempo
     scene.traverse(function(object) {
         if (object.isMesh && object.name === 'tube') {
-            object.position.x -= speed;
+            object.position.x -= speed * deltaTime;
         }
     });
 
-    // Oscillation effect for the camera
-    time += 0.01;
-    camera.position.y = Math.sin(time * frequency) * amplitude;
+    // Effetto di oscillazione della camera
+    const oscillationTime = time / 1000; // Convert time to seconds for the oscillation calculation
+    camera.position.y = Math.sin(oscillationTime * frequency) * amplitude;
 
     renderer.render(scene, camera);
 }
