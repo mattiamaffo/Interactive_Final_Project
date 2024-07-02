@@ -1,6 +1,6 @@
 import './style.css'
 import * as THREE from 'three'
-//import { generateTubes } from './generateTubes'
+import { GUI } from 'dat.gui';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // Create a new scene
@@ -13,17 +13,32 @@ camera.position.z = 5;
 // Create a new renderer
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true; // Enable shadows
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Type of shadows: soft
 document.body.appendChild(renderer.domElement);
 
 // Ambient light, white color, intensity 0.5
-var ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+var ambientLight = new THREE.AmbientLight(0xffffff, 1); 
 scene.add(ambientLight);
 
-// Directional light, white color, intensity 1
-var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(1, 1, 1).normalize();
-directionalLight.castShadow = true; // La luce direzionale proietta ombre
+var directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+directionalLight.position.set(-10, 10, 5); 
+directionalLight.target.position.set(-14.5, 1, 2); // Points the light for the best illumination of the bird
+directionalLight.castShadow = true;
 scene.add(directionalLight);
+scene.add(directionalLight.target);
+
+// GUI setup
+const gui = new GUI();
+const lightFolder = gui.addFolder('Directional Light');
+lightFolder.add(directionalLight.position, 'x', -20, 20).name('Position X');
+lightFolder.add(directionalLight.position, 'y', -20, 20).name('Position Y');
+lightFolder.add(directionalLight.position, 'z', -20, 20).name('Position Z');
+lightFolder.add(directionalLight.target.position, 'x', -20, 20).name('Target X');
+lightFolder.add(directionalLight.target.position, 'y', -20, 20).name('Target Y');
+lightFolder.add(directionalLight.target.position, 'z', -20, 20).name('Target Z');
+lightFolder.add(directionalLight, 'intensity', 0, 2).name('Intensity');
+lightFolder.open();
 
 // Now we take care of the background, we create two planes with the same texture that will move horizontally. We need 2 planes to create a continuous movement effect.
 // So we need to create two meshes and two materials, one for each plane.
@@ -86,7 +101,6 @@ function generateRandomTubes(posX = 11) {
         const tube1 = gltf.scene;
         tube1.traverse(function(node) {
             if (node.isMesh) {
-                node.castShadow = true;
                 node.receiveShadow = true;
                 node.name = 'tube'; // Set a unique name for the tube
             }
@@ -102,7 +116,6 @@ function generateRandomTubes(posX = 11) {
         const tube2 = gltf.scene;
         tube2.traverse(function(node) {
             if (node.isMesh) {
-                node.castShadow = true;
                 node.receiveShadow = true;
                 // Rotate the tube to orient it downwards
                 node.rotation.x = Math.PI; // Rotate 180 degrees around x-axis
@@ -126,13 +139,29 @@ setTimeout(() => {generateRandomTubes(10)}, 2000); // Generate the second tubes 
 // Call generateRandomTubes every 5.8 seconds
 setInterval(generateRandomTubes, 5800);
 
+// LOAD THE BIRD MODEL
+
+const bird = new GLTFLoader();
+bird.load('bird4.glb', function(gltf) {
+    const birdModel = gltf.scene;
+    birdModel.traverse(function(node) {
+        if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+        }
+    });
+    birdModel.position.set(-3, 0, 0);
+    birdModel.rotation.y = Math.PI / 2;
+    scene.add(birdModel);
+});
+
 
 // Instantiate parameters for the animate function.
+
 var speed = 3; // Speed of the movement
 // We set an oscillation effect for the camera, like as we're flying. We need to set the amplitude and the frequency of the oscillation.
 var amplitude = 0.5;
 var frequency = 1.2;
-var time = 0; // Time parameter for the oscillation
 
 let lastTime = 0;
 
