@@ -141,13 +141,15 @@ setInterval(generateRandomTubes, 5800);
 
 // LOAD THE BIRD MODEL
 
+var birdModel;
 const bird = new GLTFLoader();
-bird.load('bird4.glb', function(gltf) {
-    const birdModel = gltf.scene;
+bird.load('bird2.glb', function(gltf) {
+    birdModel = gltf.scene;
     birdModel.traverse(function(node) {
         if (node.isMesh) {
             node.castShadow = true;
             node.receiveShadow = true;
+            node.name = 'bird'; // Set a unique name for the bird
         }
     });
     birdModel.position.set(-3, 0, 0);
@@ -157,27 +159,48 @@ bird.load('bird4.glb', function(gltf) {
 
 
 // Instantiate parameters for the animate function.
-
-var speed = 3; // Speed of the movement
 // We set an oscillation effect for the camera, like as we're flying. We need to set the amplitude and the frequency of the oscillation.
-var amplitude = 0.5;
-var frequency = 1.2;
+var physicsParams = {
+    amplitude: 0.5,
+    frequency: 1.2,
+    jumpForce: 2,
+    vel: 0,
+    speed: 3,
+    gravity: -4.5 // Valore iniziale della gravità
+};
+const physicFolder = gui.addFolder('Physics');
+// Add the parameters to the GUI (only gravity at the beginning)
+physicFolder.add(physicsParams, 'gravity', -10, 10).name('Gravity');
+physicFolder.add(physicsParams, 'jumpForce', 1, 3).name('Jump');
+
+function onFlap() {
+    physicsParams.vel = physicsParams.jumpForce;
+}
+
+window.addEventListener('keydown', function(event) {
+    if (event.code === 'Space') {
+        onFlap();
+    }
+});
+
+window.addEventListener('click', function() {
+    onFlap();
+});
 
 let lastTime = 0;
 
 function animate(time) {
     requestAnimationFrame(animate);
 
-    // Calcola il delta time
-    const deltaTime = (time - lastTime) / 1000; // Converti millisecondi in secondi
+    // Calculate the time elapsed since the last frame
+    const deltaTime = (time - lastTime) / 1000; // s -> ms
     lastTime = time;
 
-    // Movimento orizzontale del background normalizzato al tempo
     if (backgroundMesh1 && backgroundMesh2) {
-        backgroundMesh1.position.x -= speed * deltaTime;
-        backgroundMesh2.position.x -= speed * deltaTime;
+        backgroundMesh1.position.x -= physicsParams.speed * deltaTime;
+        backgroundMesh2.position.x -= physicsParams.speed * deltaTime;
 
-        // Reset della posizione dei piani quando escono dallo schermo
+        // Background movement effect
         if (backgroundMesh1.position.x < -backgroundMesh1.geometry.parameters.width) {
             backgroundMesh1.position.x = backgroundMesh2.position.x + backgroundMesh2.geometry.parameters.width;
         }
@@ -186,16 +209,21 @@ function animate(time) {
         }
     }
 
-    // Movimento orizzontale dei tubi normalizzato al tempo
+    // Horizontal movement of the tubes
     scene.traverse(function(object) {
         if (object.isMesh && object.name === 'tube') {
-            object.position.x -= speed * deltaTime;
+            object.position.x -= physicsParams.speed * deltaTime;
         }
     });
 
-    // Effetto di oscillazione della camera
+    // Oscillatory movement of the camera
     const oscillationTime = time / 1000; // Convert time to seconds for the oscillation calculation
-    camera.position.y = Math.sin(oscillationTime * frequency) * amplitude;
+    camera.position.y = Math.sin(oscillationTime * physicsParams.frequency) * physicsParams.amplitude;
+
+    if (birdModel) {
+        physicsParams.vel += physicsParams.gravity * deltaTime; // Apply gravity.
+        birdModel.position.y += physicsParams.vel * deltaTime; // Change the y-position.
+    }
 
     renderer.render(scene, camera);
 }
