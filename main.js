@@ -17,6 +17,22 @@ renderer.shadowMap.enabled = true; // Enable shadows
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Type of shadows: soft
 document.body.appendChild(renderer.domElement);
 
+// Audio setup
+var stream = 'sounds/flappybird_theme.m4a';
+var audioLoader = new THREE.AudioLoader();
+var listener = new THREE.AudioListener();
+var audio = new THREE.Audio(listener);
+
+// TODO: Set the audio to play when the user clicks on the START button, when we will implement it (User Interface part).
+window.addEventListener('click', function() {
+    audioLoader.load(stream, function(buffer) {
+        audio.setBuffer(buffer);
+        audio.setLoop(true);
+        audio.setVolume(0.3);
+        audio.play();
+    });
+});
+
 // Ambient light, white color, intensity 0.5
 var ambientLight = new THREE.AmbientLight(0xffffff, 1); 
 scene.add(ambientLight);
