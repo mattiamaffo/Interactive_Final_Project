@@ -3,12 +3,23 @@ import * as THREE from 'three'
 import { GUI } from 'dat.gui';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
+let gameStarted = false;
+let gameState = 'ready'; // 'ready', 'playing', 'gameover'
+let tubes = [];
+const range = [ [-3, 7], [-4, 6], [-5, 5], [-6, 4], [-7, 3] ];
+// Bird model setup
+var birdModel;
+let id;
+let lastTime = 0;
+
+
 // Create a new scene
 var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);  // Colore del cielo
 
 // Create a new camera
 var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 5;
+camera.position.set(0, 0, 5);
 
 // Create a new renderer
 var renderer = new THREE.WebGLRenderer();
@@ -22,16 +33,6 @@ var stream = 'sounds/flappybird_theme.m4a';
 var audioLoader = new THREE.AudioLoader();
 var listener = new THREE.AudioListener();
 var audio = new THREE.Audio(listener);
-
-// TODO: Set the audio to play when the user clicks on the START button, when we will implement it (User Interface part).
-window.addEventListener('click', function() {
-    audioLoader.load(stream, function(buffer) {
-        audio.setBuffer(buffer);
-        audio.setLoop(true);
-        audio.setVolume(0.3);
-        audio.play();
-    });
-});
 
 // Ambient light, white color, intensity 0.5
 var ambientLight = new THREE.AmbientLight(0xffffff, 1); 
@@ -62,158 +63,119 @@ var debugParams = {
 const debugFolder = gui.addFolder('Debug');
 debugFolder.add(debugParams, 'showBoundingBox').name('Show Bounding Box');
 
-// Now we take care of the background, we create two planes with the same texture that will move horizontally. We need 2 planes to create a continuous movement effect.
-// So we need to create two meshes and two materials, one for each plane.
+// Background setup
 var backgroundMesh1, backgroundMesh2;
 
-// Load the texture
 var loader = new THREE.TextureLoader();
 loader.load('/background1.jpg', function(texture) {
-    // Create two materials with the same texture -> this type of material doesn't need light to be visible and doesn't reflect light.
-    var backgroundMaterial1 = new THREE.MeshBasicMaterial({
-        map: texture
-    });
+    var backgroundMaterial1 = new THREE.MeshBasicMaterial({ map: texture });
+    var backgroundMaterial2 = new THREE.MeshBasicMaterial({ map: texture.clone() });
 
-    var backgroundMaterial2 = new THREE.MeshBasicMaterial({
-        map: texture.clone()
-    });
-
-    // We don't want the texture to repeat, we want it to be clamped
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
 
-    // For obtaining a continuous movement effect, we need to set the second texture to reflect the first one. It's a sort of trick to create a continuous effect.
     backgroundMaterial2.map.wrapS = THREE.RepeatWrapping;
     backgroundMaterial2.map.repeat.x = -1;
 
-    // Calculate the aspect ratio of the texture
     var aspectRatio = texture.image.width / texture.image.height;
-    var planeHeight = 35; // Height of the plane (arbitrary)
+    var planeHeight = 35;
     var planeWidth = planeHeight * aspectRatio;
 
-    // Create the geometry of the planes
     var backgroundGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
 
-    // Apply the materials to the planes
     backgroundMesh1 = new THREE.Mesh(backgroundGeometry, backgroundMaterial1);
     backgroundMesh2 = new THREE.Mesh(backgroundGeometry, backgroundMaterial2);
 
-    // Set the position of the planes. The second one is placed next to the first one.
     backgroundMesh1.position.set(0, 0, -10);
     backgroundMesh2.position.set(planeWidth, 0, -10);
 
-    // Add the planes to the scene
     scene.add(backgroundMesh1);
     scene.add(backgroundMesh2);
 });
 
-// Function to generate random tubes with specific positions
-function generateRandomTubes(posX = 11) {
+// Function to generate random tubes
+let lastTubeX = 10; // Position of the last tube
+const tubeDistance = 9; // Fixed distance for generation of tubes
+
+function generateRandomTubes() {
     const loader = new GLTFLoader();
-    const scaleFactor = 0.5; // Adjust this value as needed
+    const scaleFactor = 0.5;
+
+    let tube1, tube2;
     
-    // Randomly select positions from the range array
     const randomIndex1 = Math.floor(Math.random() * range.length);
-    console.log(randomIndex1)
-    const positionY1 = range[randomIndex1][0]; // Lower bound of Y position
-    const positionY2 = range[randomIndex1][1]; // Upper bound of Y position
-    
-    // Load the first tube (oriented upwards)
+    const positionY1 = range[randomIndex1][0];
+    const positionY2 = range[randomIndex1][1];
+
+    // Compute the position of the tubes
+    const posX1 = lastTubeX;
+    const posX2 = posX1;
+
     loader.load('pipe2.glb', function(gltf) {
-        const tube1 = gltf.scene;
+        tube1 = gltf.scene;
         tube1.traverse(function(node) {
             if (node.isMesh) {
                 node.receiveShadow = true;
-                node.name = 'tube'; // Set a unique name for the tube
-                node.geometry.computeBoundingBox(); // Calcola il bounding box
-                node.userData.boundingBox = new THREE.Box3().setFromObject(node); // Salva il bounding box nei dati dell'utente
-                const boxHelper = new THREE.BoxHelper(node, 0xff0000); // Helper per visualizzare il bounding box
-                scene.add(boxHelper);
-                node.userData.boxHelper = boxHelper; // Salva il boxHelper nei dati dell'utente
+                node.name = 'tube';
+                node.geometry.computeBoundingBox();
             }
         });
-        tube1.position.set(posX, positionY1, 0); 
-        console.log(tube1.position)
+        tube1.position.set(posX1, positionY1, 0); 
         tube1.scale.set(scaleFactor, 1.5, scaleFactor);
+        tube1.userData.boundingBox = new THREE.Box3().setFromObject(tube1);
+        const BoxHelper = new THREE.BoxHelper(tube1, 0xff0000);
+        scene.add(BoxHelper);
+        tube1.userData.boxHelper = BoxHelper;
         scene.add(tube1);
+
+        tubes.push(tube1); // Add tube1 to the tubes array
     });
-  
-    // Load the second tube (oriented downwards)
+
     loader.load('pipe2.glb', function(gltf) {
-        const tube2 = gltf.scene;
+        tube2 = gltf.scene;
         tube2.traverse(function(node) {
             if (node.isMesh) {
                 node.receiveShadow = true;
-                // Rotate the tube to orient it downwards
-                node.rotation.x = Math.PI; // Rotate 180 degrees around x-axis
+                node.rotation.x = Math.PI;
                 node.name = 'tube';
-                node.geometry.computeBoundingBox(); // Calcola il bounding box
-                node.userData.boundingBox = new THREE.Box3().setFromObject(node); // Salva il bounding box nei dati dell'utente
-                const boxHelper = new THREE.BoxHelper(node, 0xff0000); // Helper per visualizzare il bounding box
-                scene.add(boxHelper);
-                node.userData.boxHelper = boxHelper;
+                node.geometry.computeBoundingBox();
             }
         });
-        tube2.position.set(posX, positionY2, 0);
-        console.log(tube2.position)
+        tube2.position.set(posX2, positionY2, 0);
         tube2.scale.set(scaleFactor, 1.5, scaleFactor);
+        tube2.userData.boundingBox = new THREE.Box3().setFromObject(tube2);
+        const BoxHelper = new THREE.BoxHelper(tube2, 0xff0000);
+        scene.add(BoxHelper);
+        tube2.userData.boxHelper = BoxHelper;
         scene.add(tube2);
+
+        tubes.push(tube2); // Add tube2 to the tubes array
     });
+
+    // Update lastTubeX
+
+    lastTubeX += tubeDistance;
 }
 
-// Array of Y positions for tubes
-const range = [ [-3, 7], [-4, 6], [-5, 5], [-6, 4], [-7, 3] ];
-
-generateRandomTubes(5); // Generate the first tubes
-
-setTimeout(() => {generateRandomTubes(10)}, 2000); // Generate the second tubes after 2 seconds
-
-// Call generateRandomTubes every 5.8 seconds
-setInterval(generateRandomTubes, 5800);
-
-// LOAD THE BIRD MODEL
-
-var birdModel;
-const bird = new GLTFLoader();
-bird.load('bird2.glb', function(gltf) {
-    birdModel = gltf.scene;
-    birdModel.traverse(function(node) {
-        if (node.isMesh) {
-            node.castShadow = true;
-            node.receiveShadow = true;
-            node.geometry.computeBoundingBox(); // Calcola il bounding box
-        }
-    });
-    birdModel.position.set(-3, 0, 0);
-    birdModel.rotation.y = Math.PI / 2;
-    birdModel.userData.boundingBox = new THREE.Box3().setFromObject(birdModel);
-    const boxHelper = new THREE.BoxHelper(birdModel, 0x00ff00); // Helper per visualizzare il bounding box
-    scene.add(boxHelper);
-    birdModel.userData.boxHelper = boxHelper;
-    scene.add(birdModel);
-});
-
-
-// Instantiate parameters for the animate function.
-// We set an oscillation effect for the camera, like as we're flying. We need to set the amplitude and the frequency of the oscillation.
+// Physics parameters
 var physicsParams = {
     amplitude: 0.5,
     frequency: 1.2,
     jumpForce: 2,
     vel: 0,
     speed: 3,
-    gravity: -4.5 // Valore iniziale della gravità
+    gravity: 0
 };
 
 const physicFolder = gui.addFolder('Physics');
-// Add the parameters to the GUI (only gravity at the beginning)
 physicFolder.add(physicsParams, 'gravity', -10, 10).name('Gravity');
 physicFolder.add(physicsParams, 'jumpForce', 1, 3).name('Jump');
 
-// Function to make the bird flap
-
+// Flap function
 function onFlap() {
-    physicsParams.vel = physicsParams.jumpForce;
+    if (gameState === 'playing') {
+        physicsParams.vel = physicsParams.jumpForce;
+    }
 }
 
 window.addEventListener('keydown', function(event) {
@@ -226,39 +188,69 @@ window.addEventListener('click', function() {
     onFlap();
 });
 
-let id;
 
-// Function to reset the entire scene
-function resetScene() {
-    console.log('Collision detected!');
-    cancelAnimationFrame(id); // Stop the animation
+function removeAllTubes() {
+    tubes.forEach(tube => {
+        if (tube && tube.userData) {
+            scene.remove(tube.userData.boxHelper);
+            scene.remove(tube);
+        }
+    });
+    tubes = []; // Empty the tubes array
 }
 
-// Handling of the bird's collision with the tubes
+// Reset function
+function resetScene() {
+    console.log('Collision detected!');
+    cancelAnimationFrame(id);
+    gameStarted = false;
+    gameState = 'ready';
+    document.getElementById('startScreen').style.display = 'flex';
+    console.log('Resetting scene...');
+    if (birdModel) {
+        console.log('Removing bird model...');
+        scene.remove(birdModel.userData.boxHelper);
+        scene.remove(birdModel);
+        birdModel = null;
+    }
+    if (tubes.length > 0) {
+        removeAllTubes();
+    }
+    // Reset lastTime
+    lastTime = 0;
+
+    // Reset lastTubeX
+    lastTubeX = 10;
+
+}
+
 function handleCollisions() {
-    scene.traverse(function(object) {
-        if (object.isMesh && object.name === 'tube') {
-            if (birdModel.userData.boundingBox && birdModel.userData.boundingBox.intersectsBox(object.userData.boundingBox)) {
-                resetScene(); // Reset the whole scene
+    // Check if the bird collides with the tubes
+    tubes.forEach(tube => {
+        if (birdModel && birdModel.userData.boundingBox && tube && tube.userData.boundingBox) {
+            if (birdModel.userData.boundingBox.intersectsBox(tube.userData.boundingBox)) {
+                resetScene();
             }
         }
     });
 }
 
-let lastTime = 0;
-
 function animate(time) {
+    console.log('Animating');
+
+    if (!gameStarted || !birdModel) return;
+
     id = requestAnimationFrame(animate);
 
-    // Calculate the time elapsed since the last frame
-    const deltaTime = (time - lastTime) / 1000; // s -> ms
+    const deltaTime = (time - lastTime) / 1000;
     lastTime = time;
+
+    generateRandomTubes();
 
     if (backgroundMesh1 && backgroundMesh2) {
         backgroundMesh1.position.x -= physicsParams.speed * deltaTime;
         backgroundMesh2.position.x -= physicsParams.speed * deltaTime;
 
-        // Background movement effect
         if (backgroundMesh1.position.x < -backgroundMesh1.geometry.parameters.width) {
             backgroundMesh1.position.x = backgroundMesh2.position.x + backgroundMesh2.geometry.parameters.width;
         }
@@ -267,42 +259,106 @@ function animate(time) {
         }
     }
 
-    // Horizontal movement of the tubes
-    scene.traverse(function(object) {
-        if (object.isMesh && object.name === 'tube') {
-            object.position.x -= physicsParams.speed * deltaTime;
-            if (object.userData.boundingBox) {
-                object.userData.boundingBox.setFromObject(object);
-            }
-            if (object.userData.boxHelper) {
-                object.userData.boxHelper.update(); // Update the BoxHelper position
-                object.userData.boxHelper.visible = debugParams.showBoundingBox;
-            }
+    tubes.forEach(tube => {
+        tube.position.x -= physicsParams.speed * deltaTime;
+
+        // Update bounding box and box helper
+        if (tube.userData.boundingBox) {
+            tube.userData.boundingBox.setFromObject(tube);
+        }
+        if (tube.userData.boxHelper) {
+            tube.userData.boxHelper.update();
+            tube.userData.boxHelper.visible = debugParams.showBoundingBox;
         }
     });
 
-    // Oscillatory movement of the camera
-    const oscillationTime = time / 1000; // Convert time to seconds for the oscillation calculation
+    const oscillationTime = time / 1000;
     camera.position.y = Math.sin(oscillationTime * physicsParams.frequency) * physicsParams.amplitude;
 
     if (birdModel) {
-        physicsParams.vel += physicsParams.gravity * deltaTime;
-        birdModel.position.y += physicsParams.vel * deltaTime;
+        if (gameState === 'playing') {
+            physicsParams.gravity = -4.5;
+            physicsParams.vel += physicsParams.gravity * deltaTime;
+            birdModel.position.y += physicsParams.vel * deltaTime;
 
-        // Check the existence of the bounding box and the boxHelper
+            // Check if the bird is out of the screen
+            const minY = -5;
+            if (birdModel.position.y < minY) {
+                birdModel.position.y = 0;
+                physicsParams.vel = 0;
+            }
+        }
+
         if (birdModel.userData.boundingBox) {
             birdModel.userData.boundingBox.setFromObject(birdModel);
         }
         if (birdModel.userData.boxHelper) {
-            birdModel.userData.boxHelper.update(); // Update the BoxHelper position
+            birdModel.userData.boxHelper.update();
             birdModel.userData.boxHelper.visible = debugParams.showBoundingBox;
         }
 
-        // Handling of the bird's collision with the tubes
         handleCollisions();
     }
 
-
     renderer.render(scene, camera);
 }
-animate();
+
+
+function startGame() {
+    console.log('Game started');
+    gameStarted = true;
+    gameState = 'playing';
+    document.getElementById('startScreen').style.display = 'none';
+  
+    audioLoader.load(stream, function(buffer) {
+        audio.setBuffer(buffer);
+        audio.setLoop(true);
+        audio.setVolume(0.3);
+        audio.play();
+    });
+
+    console.log('Loading bird model...');
+    const bird = new GLTFLoader();
+    bird.load(
+        'bird2.glb',
+        function(gltf) {
+            console.log('Bird model loaded successfully');
+            birdModel = gltf.scene;
+            birdModel.traverse(function(node) {
+                if (node.isMesh) {
+                    node.castShadow = true;
+                    node.receiveShadow = true;
+                    node.geometry.computeBoundingBox();
+                }
+            });
+            birdModel.position.set(-3, 0, 0);
+            birdModel.rotation.y = Math.PI / 2;
+            birdModel.userData.boundingBox = new THREE.Box3().setFromObject(birdModel);
+            const boxHelper = new THREE.BoxHelper(birdModel, 0x00ff00);
+            scene.add(boxHelper);
+            birdModel.userData.boxHelper = boxHelper;
+            scene.add(birdModel);
+            console.log('Bird added to scene at position:', birdModel.position);
+
+            // Reset the velocity.
+            physicsParams.vel = 0;
+
+            // Start the animation
+            requestAnimationFrame(animate);
+        },
+    );
+
+    // Render the initial scene
+    renderer.render(scene, camera);
+}
+
+document.getElementById('startButton').addEventListener('click', startGame);
+
+// Window resize handling
+window.addEventListener('resize', onWindowResize, false);
+
+function onWindowResize(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
