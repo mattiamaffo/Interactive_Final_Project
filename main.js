@@ -11,6 +11,21 @@ const range = [ [-3, 7], [-4, 6], [-5, 5], [-6, 4], [-7, 3] ];
 var birdModel;
 let id;
 let lastTime = 0;
+const gui = new GUI();
+
+var debugParams = {
+    showBoundingBox: true
+};
+
+// Physics parameters
+var physicsParams = {
+    amplitude: 0.5,
+    frequency: 1.2,
+    jumpForce: 2,
+    vel: 0,
+    speed: 3,
+    gravity: 0
+};
 
 
 // Create a new scene
@@ -46,7 +61,6 @@ scene.add(directionalLight);
 scene.add(directionalLight.target);
 
 // GUI setup
-const gui = new GUI();
 const lightFolder = gui.addFolder('Directional Light');
 lightFolder.add(directionalLight.position, 'x', -20, 20).name('Position X');
 lightFolder.add(directionalLight.position, 'y', -20, 20).name('Position Y');
@@ -57,11 +71,6 @@ lightFolder.add(directionalLight.target.position, 'z', -20, 20).name('Target Z')
 lightFolder.add(directionalLight, 'intensity', 0, 2).name('Intensity');
 lightFolder.open();
 
-var debugParams = {
-    showBoundingBox: true
-};
-const debugFolder = gui.addFolder('Debug');
-debugFolder.add(debugParams, 'showBoundingBox').name('Show Bounding Box');
 
 // Background setup
 var backgroundMesh1, backgroundMesh2;
@@ -92,6 +101,13 @@ loader.load('/background1.jpg', function(texture) {
     scene.add(backgroundMesh1);
     scene.add(backgroundMesh2);
 });
+
+const physicFolder = gui.addFolder('Physics');
+physicFolder.add(physicsParams, 'gravity', -10, 10).name('Gravity');
+physicFolder.add(physicsParams, 'jumpForce', 1, 3).name('Jump');
+
+const debugFolder = gui.addFolder('Debug');
+debugFolder.add(debugParams, 'showBoundingBox').name('Show Bounding Box');
 
 // Function to generate random tubes
 let lastTubeX = 10; // Position of the last tube
@@ -157,20 +173,6 @@ function generateRandomTubes() {
     lastTubeX += tubeDistance;
 }
 
-// Physics parameters
-var physicsParams = {
-    amplitude: 0.5,
-    frequency: 1.2,
-    jumpForce: 2,
-    vel: 0,
-    speed: 3,
-    gravity: 0
-};
-
-const physicFolder = gui.addFolder('Physics');
-physicFolder.add(physicsParams, 'gravity', -10, 10).name('Gravity');
-physicFolder.add(physicsParams, 'jumpForce', 1, 3).name('Jump');
-
 // Flap function
 function onFlap() {
     if (gameState === 'playing') {
@@ -216,6 +218,7 @@ function resetScene() {
     if (tubes.length > 0) {
         removeAllTubes();
     }
+
     // Reset lastTime
     lastTime = 0;
 
@@ -309,6 +312,7 @@ function startGame() {
     gameStarted = true;
     gameState = 'playing';
     document.getElementById('startScreen').style.display = 'none';
+    gui.show();
   
     audioLoader.load(stream, function(buffer) {
         audio.setBuffer(buffer);
@@ -352,6 +356,7 @@ function startGame() {
     renderer.render(scene, camera);
 }
 
+gui.hide();
 document.getElementById('startButton').addEventListener('click', startGame);
 
 // Window resize handling
