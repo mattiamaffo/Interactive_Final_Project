@@ -19,6 +19,48 @@ html, body {
   letter-spacing: .8px;
 }
 
+#containerScore {
+  position: absolute;
+   width: 100%; 
+   height: 15%; 
+   display: flex; 
+   justify-content: center; 
+   align-items: center; 
+   z-index: 1000; 
+   flex-direction: row;
+}
+
+#maxText{
+  position: absolute;
+  color: white;
+  font-size: 40px; 
+  font-weight: 200; 
+  font-family: din-round,sans-serif;
+  margin-right: 86%;
+  visibility: hidden;
+}
+
+#maxScore {
+  position: absolute;
+  color: white;
+  font-size: 40px; 
+  font-weight: 200; 
+  font-family: din-round,sans-serif;
+  margin-right: 72%;
+  visibility: hidden;
+}
+
+#score{
+  position: absolute; 
+  top: 2%; 
+  left: 50%; 
+  color: white; 
+  font-size: 120px; 
+  font-weight: 200; 
+  font-family: din-round,sans-serif;
+  visibility: hidden;
+}
+
 /* CSS */
 .button-19 {
   appearance: button;
