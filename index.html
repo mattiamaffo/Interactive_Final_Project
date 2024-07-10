@@ -12,6 +12,15 @@
       <button id="startButton" class="button-19" role="button">Start!</button>
       <p id="credits">Implemented by Maffongelli Mattia for the Interactive Graphics Course.</p>
     </div>
+    <div id="gameOverScreen" style="position: absolute; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; flex-direction: column;">
+      <img src="/game_over.png" alt="Flappy Bird Game Over" style="margin-bottom: -11%; margin-top: -10%; width: 50%;">
+      <button id="restartButton" class="button-19" role="button">Restart</button>
+    </div>
+    <div id="containerScore">
+      <div id="score" >0</div>
+      <span id="maxText">Max Score: </span><div id="maxScore">0</div>
+    </div>
+    
     <script type="module" src="/main.js"></script>
   </body>
 </html>
